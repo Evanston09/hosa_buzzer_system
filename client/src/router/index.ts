@@ -1,11 +1,13 @@
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import QuizHome from '../components/QuizHome.vue';
-import About from '../components/About.vue';
+import LandingPage from '../components/LandingPage.vue'
+import QuizHome from '../components/QuizHome.vue'
+import About from '../components/About.vue'
 
 const routes = [
-  { path: '/', component: QuizHome },
-  { path: '/about', component: About },
+  { path: '/', name: 'landing', component: LandingPage },
+  { path: '/answer-selection', name: 'answer-selection', component: QuizHome },
+  { path: '/about', name: 'about', component: About },
 ]
 
 export const router = createRouter({
