@@ -1,5 +1,11 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+import { useRoute } from 'vue-router'
 import AnswerBox from './AnswerBox.vue'
+import ProfilePicture from './ProfilePicture.vue'
+
+const route = useRoute()
+const userName = computed(() => route.query.name as string || 'Guest')
 
 const handleBoxSelection = (boxNumber: number) => {
   console.log(`Box ${boxNumber} selected`)
@@ -7,7 +13,12 @@ const handleBoxSelection = (boxNumber: number) => {
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#242424] flex flex-col items-center justify-center p-8">
+  <div class="min-h-screen bg-[#242424] flex flex-col items-center justify-center p-8 relative">
+    <!-- Profile Picture in Top Right -->
+    <div class="absolute top-4 right-4 flex items-center gap-3">
+      <span class="text-white/90 font-medium">{{ userName }}</span>
+      <ProfilePicture :name="userName" size="md" />
+    </div>
     <div class="grid grid-cols-4 gap-x-16 gap-y-8 max-w-4xl">
       <!-- Row 1 -->
       <div class="flex flex-col items-center gap-4">
