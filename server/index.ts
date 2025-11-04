@@ -6,10 +6,12 @@ type User = {
     socketId: String;
     name: String;
     position?: number | null;
+    isAdmin?: boolean;
 }
 
 type GameState = {
     users: User[];
+    adminSocketId?: String;
 }
 const io = new Server({
   cors: {
@@ -40,13 +42,30 @@ io.on("connection", (socket) => {
     socket.on("new_user_connection", (userName: String) => {
         console.log("User connection event received:", userName);
         io.emit("user_connected", userName);
-        const newUser: User = {name: userName, socketId: socket.id}
 
         if (gameState.users.length >= 8) {
             socket.emit("error", "Too many users in game");
             return;
         }
+
+        // First user becomes the admin (lobby creator)
+        const isFirstUser = gameState.users.length === 0;
+        const newUser: User = {
+            name: userName,
+            socketId: socket.id,
+            isAdmin: isFirstUser
+        }
+
+        if (isFirstUser) {
+            gameState.adminSocketId = socket.id;
+            console.log(`${userName} is now the lobby admin`);
+        }
+
         gameState.users.push(newUser);
+
+        // Send admin status to the connecting user
+        socket.emit("admin_status", isFirstUser);
+
         updateGameState(gameState);
     });
 
@@ -65,7 +84,24 @@ io.on("connection", (socket) => {
 
 
     socket.on("disconnect", () => {
+        const disconnectingUser = gameState.users.find((user) => user.socketId === socket.id);
+        const wasAdmin = disconnectingUser?.isAdmin;
+
         gameState.users = gameState.users.filter((user) => user.socketId !== socket.id);
+
+        // If admin disconnects, promote the next user to admin
+        if (wasAdmin && gameState.users.length > 0) {
+            gameState.users[0].isAdmin = true;
+            gameState.adminSocketId = gameState.users[0].socketId;
+            console.log(`${gameState.users[0].name} is now the lobby admin`);
+
+            // Notify the new admin
+            io.to(gameState.users[0].socketId.toString()).emit("admin_status", true);
+        } else if (gameState.users.length === 0) {
+            // Reset admin if lobby is empty
+            gameState.adminSocketId = undefined;
+        }
+
         updateGameState(gameState);
     })
 });
