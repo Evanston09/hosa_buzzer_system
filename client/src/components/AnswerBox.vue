@@ -21,9 +21,10 @@ const props = defineProps({
         default: 0,
     }
 })
+console.log(props.rotate);
 </script>
 <template>
-    <svg xmlns="http://www.w3.org/2000/svg" :class="'rotate-'+rotate" :width="width" :height="height" viewBox="0 0 120 180">
+    <svg xmlns="http://www.w3.org/2000/svg" :class="`rotate-[${rotate}deg]`" :width="width" :height="height" viewBox="0 0 120 180">
         <defs>
             <!-- LED glow and highlight -->
             <radialGradient id="ledGrad" cx="50%" cy="40%" r="60%">

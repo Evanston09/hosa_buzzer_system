@@ -1,46 +1,90 @@
 <script setup lang="ts">
+import { useRoute } from 'vue-router'
 import AnswerBox from './AnswerBox.vue'
+import ProfilePicture from './ProfilePicture.vue'
+import { Button } from '@/components/ui/button'
+import { computed, onUnmounted, ref } from 'vue'
+import { toast } from 'vue-sonner';
+import { io } from 'socket.io-client'
+
+const route = useRoute()
+const userName = computed(() => route.query.name as string || 'Guest')
+type ServerGameState = {
+  users: Array<{
+    name: string;
+    socketId: string;
+    position?: number | null;
+  }>
+}
+
 
 const handleBoxSelection = (boxNumber: number) => {
-  console.log(`Box ${boxNumber} selected`)
+    socket.emit("position_selected", boxNumber);
 }
+
+const handleConnect = () => {
+  socket.emit('new_user_connection', userName.value)
+  toast.success("Connected to Server", {
+    description: "You are now connected to the HOSA Bowl System"
+  });
+};
+
+const handleNewUser = (userName: string) => {
+  toast.info("New User", {
+    description: userName
+  });
+};
+
+const handleGameStateUpdate = (state: ServerGameState) => {
+};
+
+const handleConnectError = () => {
+    toast.error("Connection Failed", {
+        description: "Unable to reach the HOSA Bowl server. Please try again."
+    });
+}
+
+const socket = io('http://localhost:3000');
+
+socket.on('connect', handleConnect);
+socket.on('user_connected', handleNewUser);
+socket.on('updateGameState', handleGameStateUpdate);
+socket.on('connect_error', handleConnectError);
 </script>
 
 <template>
-  <div class="min-h-screen bg-[#242424] flex flex-col items-center justify-center p-8">
+        <!-- Profile Picture in Top Right -->
+        <div class="absolute top-4 right-4 flex items-center gap-3">
+            <ProfilePicture :name="userName"  />
+        </div>
     <div class="grid grid-cols-4 gap-x-16 gap-y-8 max-w-4xl">
       <!-- Row 1 -->
       <div class="flex flex-col items-center gap-4">
-        <button @click="handleBoxSelection(1)"
-          class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+        <Button @click="handleBoxSelection(1)">
           Click to pick this spot
-        </button>
+        </Button>
         <AnswerBox :onPress="() => { }" :rotate=180 />
       </div>
 
       <!-- Row 2 -->
       <div class="flex flex-col items-center gap-4">
-        <button @click="handleBoxSelection(1)"
-          class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+        <Button @click="handleBoxSelection(2)">
           Click to pick this spot
-        </button>
-        <AnswerBox :onPress="() => { }" :rotate=180 />
-      </div>
-
-
-      <div class="flex flex-col items-center gap-4">
-        <button @click="handleBoxSelection(1)"
-          class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
-          Click to pick this spot
-        </button>
+        </Button>
         <AnswerBox :onPress="() => { }" :rotate=180 />
       </div>
 
       <div class="flex flex-col items-center gap-4">
-        <button @click="handleBoxSelection(1)"
-          class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+        <Button @click="handleBoxSelection(3)">
           Click to pick this spot
-        </button>
+        </Button>
+        <AnswerBox :onPress="() => { }" :rotate=180 />
+      </div>
+
+      <div class="flex flex-col items-center gap-4">
+        <Button @click="handleBoxSelection(4)">
+          Click to pick this spot
+        </Button>
         <AnswerBox :onPress="() => { }" :rotate=180 />
       </div>
 
@@ -56,36 +100,32 @@ const handleBoxSelection = (boxNumber: number) => {
       <!-- Row 3 -->
       <div class="flex flex-col items-center gap-4">
         <AnswerBox :onPress="() => { }" />
-        <button @click="handleBoxSelection(5)"
-          class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+        <Button @click="handleBoxSelection(5)">
           Click to pick this spot
-        </button>
+        </Button>
       </div>
 
       <div class="flex flex-col items-center gap-4">
         <AnswerBox :onPress="() => { }" />
-        <button @click="handleBoxSelection(6)"
-          class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+        <Button @click="handleBoxSelection(6)">
           Click to pick this spot
-        </button>
+        </Button>
       </div>
 
       <!-- Row 4 -->
       <div class="flex flex-col items-center gap-4">
         <AnswerBox :onPress="() => { }" />
-        <button @click="handleBoxSelection(7)"
-          class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+        <Button @click="handleBoxSelection(7)">
           Click to pick this spot
-        </button>
+        </Button>
       </div>
 
       <div class="flex flex-col items-center gap-4">
         <AnswerBox :onPress="() => { }" />
-        <button @click="handleBoxSelection(8)"
-          class="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors">
+        <Button @click="handleBoxSelection(8)">
           Click to pick this spot
-        </button>
+        </Button>
       </div>
+
     </div>
-  </div>
 </template>

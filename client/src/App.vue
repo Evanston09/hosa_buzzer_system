@@ -1,22 +1,14 @@
 <script setup lang="ts">
-  import { RouterLink, RouterView } from 'vue-router'
+import { RouterView } from "vue-router";
+import { Toaster } from '@/components/ui/sonner';
+import { toast } from 'vue-sonner';
+import 'vue-sonner/style.css'
 </script>
 
 <template>
-    <RouterView  />
-</template>
+    <div class="min-h-screen flex justify-center flex-col items-center">
 
-<style scoped>
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.vue:hover {
-  filter: drop-shadow(0 0 2em #42b883aa);
-}
-</style>
+        <Toaster position="bottom-right" />
+        <RouterView />
+    </div>
+</template>

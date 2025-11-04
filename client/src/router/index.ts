@@ -2,10 +2,11 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 
 import QuizHome from '../components/QuizHome.vue';
 import About from '../components/About.vue';
+import HomePage from '../components/HomePage.vue';
 
 const routes = [
-  { path: '/', component: QuizHome },
-  { path: '/about', component: About },
+  { path: '/', component: HomePage },
+  { path: '/quiz', component: QuizHome },
 ]
 
 export const router = createRouter({
