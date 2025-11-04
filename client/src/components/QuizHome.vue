@@ -3,12 +3,13 @@ import { useRoute } from 'vue-router'
 import AnswerBox from './AnswerBox.vue'
 import ProfilePicture from './ProfilePicture.vue'
 import { Button } from '@/components/ui/button'
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner';
 import { io } from 'socket.io-client'
 
 const route = useRoute()
 const userName = computed(() => route.query.name as string || 'Guest')
+const isAdmin = computed(() => userName.value === 'Admin')
 type ServerGameState = {
   users: Array<{
     name: string;
@@ -35,7 +36,22 @@ const handleNewUser = (userName: string) => {
   });
 };
 
+const gameState = ref<ServerGameState>({ users: [] });
+
 const handleGameStateUpdate = (state: ServerGameState) => {
+  gameState.value = state;
+};
+
+const getUserAtPosition = (position: number) => {
+  return gameState.value.users.find(user => user.position === position);
+};
+
+const handleStartGame = () => {
+  // TODO: Implement start game functionality
+  socket.emit('start_game');
+  toast.success("Game Started", {
+    description: "The game has been started!"
+  });
 };
 
 const handleConnectError = () => {
@@ -60,7 +76,10 @@ socket.on('connect_error', handleConnectError);
     <div class="grid grid-cols-4 gap-x-16 gap-y-8 max-w-4xl">
       <!-- Row 1 -->
       <div class="flex flex-col items-center gap-4">
-        <Button @click="handleBoxSelection(1)">
+        <div class="h-8">
+          <ProfilePicture v-if="getUserAtPosition(1)" :name="getUserAtPosition(1)!.name" size="sm" />
+        </div>
+        <Button v-if="!isAdmin" @click="handleBoxSelection(1)" :disabled="!!getUserAtPosition(1)">
           Click to pick this spot
         </Button>
         <AnswerBox :onPress="() => { }" :rotate=180 />
@@ -68,30 +87,42 @@ socket.on('connect_error', handleConnectError);
 
       <!-- Row 2 -->
       <div class="flex flex-col items-center gap-4">
-        <Button @click="handleBoxSelection(2)">
+        <div class="h-8">
+          <ProfilePicture v-if="getUserAtPosition(2)" :name="getUserAtPosition(2)!.name" size="sm" />
+        </div>
+        <Button v-if="!isAdmin" @click="handleBoxSelection(2)" :disabled="!!getUserAtPosition(2)">
           Click to pick this spot
         </Button>
         <AnswerBox :onPress="() => { }" :rotate=180 />
       </div>
 
       <div class="flex flex-col items-center gap-4">
-        <Button @click="handleBoxSelection(3)">
+        <div class="h-8">
+          <ProfilePicture v-if="getUserAtPosition(3)" :name="getUserAtPosition(3)!.name" size="sm" />
+        </div>
+        <Button v-if="!isAdmin" @click="handleBoxSelection(3)" :disabled="!!getUserAtPosition(3)">
           Click to pick this spot
         </Button>
         <AnswerBox :onPress="() => { }" :rotate=180 />
       </div>
 
       <div class="flex flex-col items-center gap-4">
-        <Button @click="handleBoxSelection(4)">
+        <div class="h-8">
+          <ProfilePicture v-if="getUserAtPosition(4)" :name="getUserAtPosition(4)!.name" size="sm" />
+        </div>
+        <Button v-if="!isAdmin" @click="handleBoxSelection(4)" :disabled="!!getUserAtPosition(4)">
           Click to pick this spot
         </Button>
         <AnswerBox :onPress="() => { }" :rotate=180 />
       </div>
 
     </div>
-    <!-- Center Text -->
+    <!-- Center Text or Admin Button -->
     <div class="col-span-2 flex items-center justify-center py-8">
-      <p class="text-xl text-white/90 text-center">
+      <Button v-if="isAdmin" @click="handleStartGame" size="lg" class="text-xl px-8 py-6">
+        Start Game
+      </Button>
+      <p v-else class="text-xl text-white/90 text-center">
         Click a button to select your answer box position
       </p>
     </div>
@@ -100,31 +131,43 @@ socket.on('connect_error', handleConnectError);
       <!-- Row 3 -->
       <div class="flex flex-col items-center gap-4">
         <AnswerBox :onPress="() => { }" />
-        <Button @click="handleBoxSelection(5)">
+        <Button v-if="!isAdmin" @click="handleBoxSelection(5)" :disabled="!!getUserAtPosition(5)">
           Click to pick this spot
         </Button>
+        <div class="h-8">
+          <ProfilePicture v-if="getUserAtPosition(5)" :name="getUserAtPosition(5)!.name" size="sm" />
+        </div>
       </div>
 
       <div class="flex flex-col items-center gap-4">
         <AnswerBox :onPress="() => { }" />
-        <Button @click="handleBoxSelection(6)">
+        <Button v-if="!isAdmin" @click="handleBoxSelection(6)" :disabled="!!getUserAtPosition(6)">
           Click to pick this spot
         </Button>
+        <div class="h-8">
+          <ProfilePicture v-if="getUserAtPosition(6)" :name="getUserAtPosition(6)!.name" size="sm" />
+        </div>
       </div>
 
       <!-- Row 4 -->
       <div class="flex flex-col items-center gap-4">
         <AnswerBox :onPress="() => { }" />
-        <Button @click="handleBoxSelection(7)">
+        <Button v-if="!isAdmin" @click="handleBoxSelection(7)" :disabled="!!getUserAtPosition(7)">
           Click to pick this spot
         </Button>
+        <div class="h-8">
+          <ProfilePicture v-if="getUserAtPosition(7)" :name="getUserAtPosition(7)!.name" size="sm" />
+        </div>
       </div>
 
       <div class="flex flex-col items-center gap-4">
         <AnswerBox :onPress="() => { }" />
-        <Button @click="handleBoxSelection(8)">
+        <Button v-if="!isAdmin" @click="handleBoxSelection(8)" :disabled="!!getUserAtPosition(8)">
           Click to pick this spot
         </Button>
+        <div class="h-8">
+          <ProfilePicture v-if="getUserAtPosition(8)" :name="getUserAtPosition(8)!.name" size="sm" />
+        </div>
       </div>
 
     </div>
