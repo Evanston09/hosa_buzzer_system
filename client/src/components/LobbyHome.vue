@@ -1,30 +1,50 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
+import {Clipboard, Crown} from'lucide-vue-next';
 import AnswerBox from './AnswerBox.vue'
 import ProfilePicture from './ProfilePicture.vue'
 import { Button } from '@/components/ui/button'
+import { Spinner } from '@/components/ui/spinner'
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner';
 import { io } from 'socket.io-client'
 
-const route = useRoute()
-const userName = computed(() => route.query.name as string || 'Guest')
-const isAdmin = computed(() => userName.value === 'Admin')
-type ServerGameState = {
-  users: Array<{
-    name: string;
-    socketId: string;
+type User = {
+    socketId: String;
+    name: String;
+    isAdmin: boolean
     position?: number | null;
-  }>
 }
 
+type ServerGameState = {
+    users: User[];
+    lobbyCode: string;
+}
 
+const socket = io('http://localhost:3000');
+
+const route = useRoute()
+const userName = computed(() => route.query.name as string || 'Guest')
+const mode = computed(() => route.query.action as string)
+
+const initialLobbyCode = route.query.lobbyCode
+const gameState = ref<ServerGameState | null>(null)
 const handleBoxSelection = (boxNumber: number) => {
-    socket.emit("position_selected", boxNumber);
+    socket.emit("positionSelected", boxNumber);
+}
+
+const copyCodeToClipboard = () => {
+  navigator.clipboard.writeText(gameState.value!.lobbyCode);
+  toast.success("Copied code to clipboard!")
 }
 
 const handleConnect = () => {
-  socket.emit('new_user_connection', userName.value)
+    if (mode.value === 'create') {
+        socket.emit('createLobby', userName.value)
+    }
+    if (mode.value === 'join') {
+        socket.emit("joinLobby", userName.value, initialLobbyCode);
+    }
   toast.success("Connected to Server", {
     description: "You are now connected to the HOSA Bowl System"
   });
@@ -36,22 +56,18 @@ const handleNewUser = (userName: string) => {
   });
 };
 
-const gameState = ref<ServerGameState>({ users: [] });
-
-const handleGameStateUpdate = (state: ServerGameState) => {
-  gameState.value = state;
-};
+const isAdmin = computed(() => {
+  const currentUser = gameState.value?.users.find(user => user.socketId === socket.id);
+  return currentUser?.isAdmin ?? false;
+});
 
 const getUserAtPosition = (position: number) => {
-  return gameState.value.users.find(user => user.position === position);
+  return gameState.value?.users.find(user => user.position === position);
 };
 
 const handleStartGame = () => {
   // TODO: Implement start game functionality
-  socket.emit('start_game');
-  toast.success("Game Started", {
-    description: "The game has been started!"
-  });
+  socket.emit('startGame');
 };
 
 const handleConnectError = () => {
@@ -60,18 +76,47 @@ const handleConnectError = () => {
     });
 }
 
-const socket = io('http://localhost:3000');
+const handleError = (error: { message: string }) => {
+    toast.error("Error", {
+        description: error.message
+    });
+}
 
 socket.on('connect', handleConnect);
 socket.on('user_connected', handleNewUser);
-socket.on('updateGameState', handleGameStateUpdate);
 socket.on('connect_error', handleConnectError);
+socket.on('error', handleError);
+socket.on('updateGameState', (payload: ServerGameState) => {
+    gameState.value = payload;
+});
+
 </script>
 
 <template>
-        <!-- Profile Picture in Top Right -->
+    <!-- Loading Spinner -->
+    <div v-if="!gameState" class="flex flex-col items-center justify-center gap-4">
+        <Spinner class="size-12" />
+        <p class="text-xl text-white/90">Connecting to lobby...</p>
+    </div>
+
+    <!-- Main Content -->
+    <template v-else>
         <div class="absolute top-4 right-4 flex items-center gap-3">
+            <Crown v-if="isAdmin" class="stroke-yellow-400" :size="24" />
             <ProfilePicture :name="userName"  />
+        </div>
+        <div
+            v-if="gameState?.lobbyCode"
+            class="absolute top-4 left-4 flex flex-col items-center rounded-lg border border-border px-4 py-3 space-y-1"
+        >
+            <span class="text-xs uppercase text-gray-400">Lobby Code</span>
+            <div class="flex items-center justify-center space-x-2 font-mono text-2xl tracking-widest">
+                <span>{{ gameState.lobbyCode }}</span>
+                <Clipboard
+                    @click="copyCodeToClipboard"
+                    class="hover:stroke-gray-300 hover:cursor-pointer"
+                />
+            </div>
         </div>
     <div class="grid grid-cols-4 gap-x-16 gap-y-8 max-w-4xl">
       <!-- Row 1 -->
@@ -171,4 +216,5 @@ socket.on('connect_error', handleConnectError);
       </div>
 
     </div>
+    </template>
 </template>
