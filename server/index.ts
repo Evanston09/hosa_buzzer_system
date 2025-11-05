@@ -3,14 +3,26 @@ import { Server } from "socket.io";
 
 
 type User = {
-    socketId: String;
-    name: String;
+    socketId: string;
+    name: string;
     position?: number | null;
-}
+};
+
+type Lobby = {
+    code: string;
+    adminSocketId: string;
+    adminName: string;
+    users: User[];
+};
 
 type GameState = {
+    lobbyCode: string;
+    admin: {
+        socketId: string;
+        name: string;
+    };
     users: User[];
-}
+};
 const io = new Server({
   cors: {
     origin: "*", // In production, replace with your specific domain
@@ -28,46 +40,186 @@ const engine = new Engine({
 
 io.bind(engine);
 
-let gameState: GameState = {users: []}
+const lobbies = new Map<string, Lobby>();
 
-const updateGameState = (gameState: GameState) => {
-    io.emit("updateGameState", gameState);
-}
+const formatLobbyState = (lobby: Lobby): GameState => ({
+    lobbyCode: lobby.code,
+    admin: {
+        socketId: lobby.adminSocketId,
+        name: lobby.adminName,
+    },
+    users: lobby.users,
+});
+
+const updateLobbyState = (lobby: Lobby) => {
+    io.to(lobby.code).emit("updateGameState", formatLobbyState(lobby));
+};
+
+const generateLobbyCode = () => {
+    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+    let code = "";
+    do {
+        code = Array.from({ length: 5 })
+            .map(() => alphabet[Math.floor(Math.random() * alphabet.length)])
+            .join("");
+    } while (lobbies.has(code));
+    return code;
+};
 
 io.on("connection", (socket) => {
     console.log("Client connected:", socket.id);
 
-    socket.on("new_user_connection", (userName: String) => {
-        console.log("User connection event received:", userName);
-        io.emit("user_connected", userName);
-        const newUser: User = {name: userName, socketId: socket.id}
+    socket.on("create_lobby", (payload: { name: string }, callback) => {
+        const { name } = payload;
 
-        if (gameState.users.length >= 8) {
-            socket.emit("error", "Too many users in game");
+        if (!name || typeof name !== "string") {
+            callback?.({ success: false, error: "A name is required to create a lobby." });
             return;
         }
-        gameState.users.push(newUser);
-        updateGameState(gameState);
+
+        const code = generateLobbyCode();
+        const lobby: Lobby = {
+            code,
+            adminSocketId: socket.id,
+            adminName: name,
+            users: [],
+        };
+
+        const newUser: User = { socketId: socket.id, name, position: null };
+        lobby.users.push(newUser);
+        lobbies.set(code, lobby);
+
+        socket.data.lobbyCode = code;
+        socket.data.userName = name;
+        socket.join(code);
+
+        callback?.({ success: true, lobbyCode: code, gameState: formatLobbyState(lobby) });
+        io.to(code).emit("user_connected", { name, lobbyCode: code });
+        updateLobbyState(lobby);
     });
+
+    socket.on(
+        "join_lobby",
+        (payload: { name: string; lobbyCode: string }, callback) => {
+            const { name, lobbyCode } = payload;
+            if (!name || typeof name !== "string") {
+                callback?.({ success: false, error: "A name is required to join a lobby." });
+                return;
+            }
+
+            if (!lobbyCode || typeof lobbyCode !== "string") {
+                callback?.({ success: false, error: "Lobby code is required." });
+                return;
+            }
+
+            const normalizedCode = lobbyCode.toUpperCase();
+            const lobby = lobbies.get(normalizedCode);
+
+            if (!lobby) {
+                callback?.({ success: false, error: "Lobby not found." });
+                return;
+            }
+
+            if (lobby.users.length >= 8) {
+                callback?.({ success: false, error: "This lobby is full." });
+                return;
+            }
+
+            if (lobby.users.find((user) => user.name.toLowerCase() === name.toLowerCase())) {
+                callback?.({ success: false, error: "That display name is already taken in this lobby." });
+                return;
+            }
+
+            const newUser: User = { socketId: socket.id, name, position: null };
+            lobby.users.push(newUser);
+
+            socket.data.lobbyCode = normalizedCode;
+            socket.data.userName = name;
+            socket.join(normalizedCode);
+
+            callback?.({ success: true, lobbyCode: normalizedCode, gameState: formatLobbyState(lobby) });
+            io.to(normalizedCode).emit("user_connected", { name, lobbyCode: normalizedCode });
+            updateLobbyState(lobby);
+        }
+    );
 
     socket.on("position_selected", (boxNumber: number) => {
-        const user = gameState.users.find((u) => u.socketId === socket.id);
-
-        if (user) {
-            user.position = boxNumber;
-            console.log(`${user.name} selected position ${boxNumber}`);
-        } else {
-            console.warn(`User with socket ID ${socket.id} not found`);
+        const lobbyCode: string | undefined = socket.data.lobbyCode;
+        if (!lobbyCode) {
+            return;
         }
 
-        updateGameState(gameState);
+        const lobby = lobbies.get(lobbyCode);
+        if (!lobby) {
+            return;
+        }
+
+        const user = lobby.users.find((u) => u.socketId === socket.id);
+
+        if (!user) {
+            console.warn(`User with socket ID ${socket.id} not found in lobby ${lobbyCode}`);
+            return;
+        }
+
+        const takenBy = lobby.users.find((u) => u.position === boxNumber && u.socketId !== socket.id);
+        if (takenBy) {
+            socket.emit("action_denied", "That position is already taken.");
+            return;
+        }
+
+        user.position = boxNumber;
+        console.log(`${user.name} selected position ${boxNumber} in lobby ${lobbyCode}`);
+
+        updateLobbyState(lobby);
     });
 
+    socket.on("start_game", () => {
+        const lobbyCode: string | undefined = socket.data.lobbyCode;
+        if (!lobbyCode) {
+            return;
+        }
+
+        const lobby = lobbies.get(lobbyCode);
+        if (!lobby) {
+            return;
+        }
+
+        if (lobby.adminSocketId !== socket.id) {
+            socket.emit("action_denied", "Only the lobby admin can start the game.");
+            return;
+        }
+
+        io.to(lobby.code).emit("game_started");
+        console.log(`Game started in lobby ${lobbyCode}`);
+    });
 
     socket.on("disconnect", () => {
-        gameState.users = gameState.users.filter((user) => user.socketId !== socket.id);
-        updateGameState(gameState);
-    })
+        const lobbyCode: string | undefined = socket.data.lobbyCode;
+        if (!lobbyCode) {
+            return;
+        }
+
+        const lobby = lobbies.get(lobbyCode);
+        if (!lobby) {
+            return;
+        }
+
+        lobby.users = lobby.users.filter((user) => user.socketId !== socket.id);
+
+        if (lobby.adminSocketId === socket.id) {
+            if (lobby.users.length === 0) {
+                lobbies.delete(lobbyCode);
+                return;
+            }
+
+            const newAdmin = lobby.users[0];
+            lobby.adminSocketId = newAdmin.socketId;
+            lobby.adminName = newAdmin.name;
+            io.to(lobbyCode).emit("admin_changed", { name: newAdmin.name });
+        }
+
+        updateLobbyState(lobby);
+    });
 });
 
 

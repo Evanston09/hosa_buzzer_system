@@ -1,7 +1,6 @@
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 import QuizHome from '../components/QuizHome.vue';
-import About from '../components/About.vue';
 import HomePage from '../components/HomePage.vue';
 
 const routes = [

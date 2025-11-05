@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref } from 'vue'
 
 const lightOn = ref(false);
 
@@ -21,7 +21,6 @@ const props = defineProps({
         default: 0,
     }
 })
-console.log(props.rotate);
 </script>
 <template>
     <svg xmlns="http://www.w3.org/2000/svg" :class="`rotate-[${rotate}deg]`" :width="width" :height="height" viewBox="0 0 120 180">
