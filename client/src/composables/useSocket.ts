@@ -4,8 +4,13 @@ import { io, Socket } from 'socket.io-client';
 let socketInstance: Socket | null = null;
 
 export function useSocket() {
+    const isDev = process.env.NODE_ENV === "development";
+    const url = isDev
+        ? "http://localhost:3000"
+        : process.env.API_URL!;
+
     if (!socketInstance) {
-        socketInstance = io('http://localhost:3000', {
+        socketInstance = io(url, {
             autoConnect: true
         });
     }

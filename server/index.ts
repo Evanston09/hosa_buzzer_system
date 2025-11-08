@@ -1,15 +1,24 @@
 import { Server as Engine } from "@socket.io/bun-engine";
 import { Server } from "socket.io";
+import type {Socket } from "socket.io";
 
+const GAME_LENGTH = 10000
+const BUZZ_LENGTH = 5000
+const ANSWER_LENGTH = 5000
+const USER_AMOUNT = 9 // Including admin
 
 type User = {
-    socketId: String;
+    socketId: string;
     name: String;
-    isAdmin: boolean
+    isAdmin: boolean;
     position?: number | null;
 }
 
+
 type Lobby = {
+    gameState: 'lobby' | 'normal' | 'buzzTime' | 'answer';
+    hotSeat? : number | null
+    timeoutId?: NodeJS.Timeout| null;
     users: User[];
     lobbyCode: string;
 }
@@ -40,11 +49,42 @@ const getLobbyCodeFromUser = (socketId: string) => {
     for (const [lobbyCode, lobby] of lobbies.entries()) {
         if (lobby.users.some(user => user.socketId === socketId)) {
             return lobbyCode;
-            break;
         }
     }
+}
 
+const getLobbyForSocket = (socket: Socket): { lobby: Lobby; lobbyCode: string } | null => {
+    const lobbyCode = getLobbyCodeFromUser(socket.id);
+    if (!lobbyCode) {
+        socket.emit("error", { message: "You are not in a lobby" });
+        return null;
+    }
+    const lobby = lobbies.get(lobbyCode)!;
+    return { lobby, lobbyCode };
+}
 
+const getCurrentUser = (lobby: Lobby, socketId: string): User | undefined => {
+    return lobby.users.find(user => user.socketId === socketId);
+}
+
+const requireAdmin = (socket: Socket, lobby: Lobby): boolean => {
+    const currentUser = getCurrentUser(lobby, socket.id);
+    if (!currentUser?.isAdmin) {
+        socket.emit("error", { message: "Only the admin can perform this action" });
+        return false;
+    }
+    return true;
+}
+
+const broadcastGameState = (lobbyCode: string, lobby: Lobby) => {
+    io.to(lobbyCode).emit("updateGameState", lobby);
+}
+
+const clearLobbyTimeout = (lobby: Lobby) => {
+    if (lobby.timeoutId) {
+        clearTimeout(lobby.timeoutId);
+        lobby.timeoutId = null;
+    }
 }
 
 let lobbies = new Map<string, Lobby>(); 
@@ -63,6 +103,7 @@ io.on("connection", (socket) => {
         };
 
         const lobby: Lobby = {
+            gameState: 'lobby',
             users: [adminUser],
             lobbyCode,
         };
@@ -73,7 +114,7 @@ io.on("connection", (socket) => {
         console.log(`Lobby ${lobbyCode} created by ${userName}`);
         socket.emit("lobbyCreated", { lobbyCode, users: lobby.users });
 
-        io.to(lobbyCode).emit("updateGameState", lobbies.get(lobbyCode))
+        broadcastGameState(lobbyCode, lobby);
     });
 
     socket.on("joinLobby", (userName: string, lobbyCode: string) => {
@@ -96,21 +137,16 @@ io.on("connection", (socket) => {
         socket.join(lobbyCode);
 
         console.log(`Lobby ${lobbyCode} joined by ${userName}`);
-        io.to(lobbyCode).emit("updateGameState", lobbies.get(lobbyCode))
+        broadcastGameState(lobbyCode, lobby);
     });
 
 
 
     socket.on("positionSelected", (position: number) => {
-        
-        const userLobbyCode = getLobbyCodeFromUser(socket.id)
+        const result = getLobbyForSocket(socket);
+        if (!result) return;
 
-        if (!userLobbyCode) {
-            socket.emit("error", { message: "You are not in a lobby" });
-            return;
-        }
-
-        const lobby = lobbies.get(userLobbyCode)!;
+        const { lobby, lobbyCode } = result;
 
         const isPositionTaken = lobby.users.some(user => user.position === position);
         if (isPositionTaken) {
@@ -119,33 +155,112 @@ io.on("connection", (socket) => {
         }
 
         // Update the user's position
-        const user = lobby.users.find(user => user.socketId === socket.id);
+        const user = getCurrentUser(lobby, socket.id);
         if (user) {
             user.position = position;
-            console.log(`User ${user.name} selected position ${position} in lobby ${userLobbyCode}`);
+            console.log(`User ${user.name} selected position ${position} in lobby ${lobbyCode}`);
 
-            io.to(userLobbyCode).emit("updateGameState", lobby);
+            broadcastGameState(lobbyCode, lobby);
         }
     });
 
     socket.on("startGame", () => {
-        const userLobbyCode = getLobbyCodeFromUser(socket.id)
+        const result = getLobbyForSocket(socket);
+        if (!result) return;
 
-        if (!userLobbyCode) {
-            socket.emit("error", { message: "You are not in a lobby" });
+        const { lobby, lobbyCode } = result;
+
+        if (!requireAdmin(socket, lobby)) return;
+
+        if (lobby.users.length < USER_AMOUNT) {
+            socket.emit("error", { message: "Not enough players in the lobby" });
             return;
         }
 
-        const lobby = lobbies.get(userLobbyCode)!;
-        if (lobby.users.length < 8) {
-            socket.emit("error", { message: "Not enough people in lobby" });
+        const missingPositions = lobby.users.filter(
+            (u) => !u.isAdmin && (u.position === null || u.position === undefined)
+        );
+
+        if (missingPositions.length > 0) {
+            socket.emit("error", {
+                message: `The following players haven't selected a position: ${missingPositions
+.map((u) => u.name)
+.join(", ")}`,
+            });
+            return;
         }
+
+        lobby.gameState = 'normal';
+
+
+        io.to(lobbyCode).emit("gameStarted", {
+            message: "Game started successfully!",
+            lobby,
+        });
+
+        setTimeout(() => {
+            io.to(lobbyCode).emit("gameEnded");
+        }, GAME_LENGTH)
+
+        console.log(`Game started in lobby ${lobbyCode}`);
+    });
+
+    socket.on("connectedToGame", (callback) => {
+        console.log("Client connected to game:", socket.id)
+        const result = getLobbyForSocket(socket);
+        if (!result) return;
+
+        callback(result.lobby);
     })
+
+    socket.on("startBuzzPhase", () => {
+        const result = getLobbyForSocket(socket);
+        if (!result) return;
+
+        const { lobby, lobbyCode } = result;
+
+        if (!requireAdmin(socket, lobby)) return;
+
+        lobby.gameState = 'buzzTime';
+        broadcastGameState(lobbyCode, lobby);
+        lobby.timeoutId = setTimeout(() => {
+            lobby.gameState = 'normal';
+            broadcastGameState(lobbyCode, lobby);
+        }, BUZZ_LENGTH)
+    })
+
+    socket.on("buzz", () => {
+        const result = getLobbyForSocket(socket);
+        if (!result) return;
+
+        const { lobby, lobbyCode } = result;
+
+        if (lobby.gameState !== 'buzzTime') {
+            socket.emit("error", { message: "Cannot buzz right now" });
+            return
+        }
+
+        clearLobbyTimeout(lobby);
+
+        const currentUser = getCurrentUser(lobby, socket.id);
+        lobby.gameState = 'answer';
+        lobby.hotSeat = currentUser?.position ?? null;
+
+        broadcastGameState(lobbyCode, lobby);
+
+        console.log(`User ${currentUser?.name} buzzed in at position ${lobby.hotSeat}`);
+
+        lobby.timeoutId = setTimeout(() => {
+            lobby.gameState = 'normal';
+            lobby.hotSeat = null;
+            broadcastGameState(lobbyCode, lobby);
+        }, ANSWER_LENGTH)
+    })
+
 
     socket.on("disconnect", () => {
         console.log("Client disconnected:", socket.id);
 
-        // Remove user from their lobby
         for (const [lobbyCode, lobby] of lobbies.entries()) {
             const userIndex = lobby.users.findIndex(user => user.socketId === socket.id);
             if (userIndex !== -1) {
@@ -153,13 +268,13 @@ io.on("connection", (socket) => {
                 lobby.users.splice(userIndex, 1);
                 console.log(`User ${user.name} removed from lobby ${lobbyCode}`);
 
-                // If lobby is empty, delete it
+                clearLobbyTimeout(lobby);
+
                 if (lobby.users.length === 0) {
                     lobbies.delete(lobbyCode);
                     console.log(`Lobby ${lobbyCode} deleted (empty)`);
                 } else {
-                    // Broadcast updated game state to remaining users
-                    io.to(lobbyCode).emit("updateGameState", lobby);
+                    broadcastGameState(lobbyCode, lobby);
                 }
                 break;
             }

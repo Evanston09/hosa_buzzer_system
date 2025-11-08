@@ -9,17 +9,27 @@ import { Button } from '@/components/ui/button';
 import AnswerBox from './AnswerBox.vue';
 import ProfilePicture from './ProfilePicture.vue';
 import type { Socket } from 'socket.io-client';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { router } from '../router';
 
 const { socket: socketRef } = useSocket()
 const socket: Socket = socketRef.value
-const buzzTime = ref(500); // Timer for buzz phase
-const answerTime = ref(500); // Timer for answer phase
+const buzzTime = ref(500);
+const answerTime = ref(500);
 
 const isConnected = ref(socket.connected)
 
 type User = {
-    socketId: String;
-    name: String;
+    socketId: string;
+    name: string;
     isAdmin: boolean
     position?: number | null;
 }
@@ -33,6 +43,7 @@ type ServerGameState = {
 }
 
 let mainCountdown = ref(600);
+let dialogOpen = ref(false);
 
 let mainCountdownInterval = setInterval(() => {
     mainCountdown.value -= 1;
@@ -135,6 +146,10 @@ socket.on('error', (error: { message: string }) => {
         description: error.message
     });
 });
+
+socket.on('gameEnded', () => {
+    dialogOpen.value = true;
+});
 </script>
 
 <template>
@@ -143,6 +158,17 @@ socket.on('error', (error: { message: string }) => {
         <p class="text-xl text-white/90">Connecting to lobby...</p>
     </div>
     <template v-else>
+        <AlertDialog v-model:open="dialogOpen">
+            <AlertDialogContent  :disableOutsidePointerEvents="true" @escapeKeyDown="(event) => event.preventDefault()">
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Time's Up</AlertDialogTitle>
+                    <AlertDialogDescription>The game has ended.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogAction @click="router.push('/')">Return to Home</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
         <div v-if="isAdmin">
             <div class="grid grid-cols-4 gap-x-16 gap-y-8 max-w-4xl">
                 <!-- Position 1 -->
