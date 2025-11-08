@@ -3,8 +3,6 @@ services:
     image: ghcr.io/evanston09/hosa_buzzer_system-client:main
     depends_on:
       - hosa_server
-    environment:
-      VITE_API_URL: http://localhost:3000
     ports:
       - "4173:4173"
 
