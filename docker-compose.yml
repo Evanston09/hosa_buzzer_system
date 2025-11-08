@@ -1,11 +1,15 @@
 services:
   hosa_client:
-    build: ./client/
+    image: ghcr.io/evanston09/hosa_buzzer_system-client:main
     depends_on:
       - hosa_server
     environment:
-      API_URL: http://localhost:300
+      API_URL: http://localhost:3000
+    ports:
+      - "4173:4173"
 
   hosa_server:
-    build: ./server/
+    image: ghcr.io/evanston09/hosa_buzzer_system-server:main
+    ports:
+      - "3000:3000"
 
