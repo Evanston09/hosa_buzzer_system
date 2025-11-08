@@ -4,7 +4,7 @@ services:
     depends_on:
       - hosa_server
     environment:
-      API_URL: http://localhost:3000
+      VITE_API_URL: http://localhost:3000
     ports:
       - "4173:4173"
 

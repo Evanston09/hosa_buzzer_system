@@ -4,10 +4,11 @@ import { io, Socket } from 'socket.io-client';
 let socketInstance: Socket | null = null;
 
 export function useSocket() {
-    const isDev = process.env.NODE_ENV === "development";
+    const isDev = import.meta.env.DEV;
+
     const url = isDev
         ? "http://localhost:3000"
-        : process.env.API_URL!;
+        : import.meta.env.VITE_API_URL;
 
     console.log(isDev)
 
