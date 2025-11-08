@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
 import { toast } from 'vue-sonner';
-import { ref, onMounted, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { Spinner } from '@/components/ui/spinner'
 import { useSocket } from '@/composables/useSocket'
 import GameClock from './GameClock.vue';
 import { Button } from '@/components/ui/button';
 import AnswerBox from './AnswerBox.vue';
 import ProfilePicture from './ProfilePicture.vue';
-import type { Socket } from 'socket.io-client';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -18,10 +16,10 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { router } from '../router';
+import { router } from '@/router';
 
 const { socket: socketRef } = useSocket()
-const socket: Socket = socketRef.value
+const socket = socketRef.value
 const buzzTime = ref(500);
 const answerTime = ref(500);
 

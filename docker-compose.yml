@@ -1,0 +1,11 @@
+services:
+  hosa_client:
+    build: ./client/
+    depends_on:
+      - hosa_server
+    environment:
+      API_URL: http://localhost:300
+
+  hosa_server:
+    build: ./server/
+

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+// @ts-ignore
 import SevenSegmentDisplay from "vue-ts-seven-segment-display";
 
 const props = defineProps({

@@ -9,6 +9,8 @@ export function useSocket() {
         ? "http://localhost:3000"
         : process.env.API_URL!;
 
+    console.log(isDev)
+
     if (!socketInstance) {
         socketInstance = io(url, {
             autoConnect: true

@@ -10,8 +10,8 @@ import { toast } from 'vue-sonner';
 import { useSocket } from '@/composables/useSocket';
 
 type User = {
-    socketId: String;
-    name: String;
+    socketId: string;
+    name: string;
     isAdmin: boolean
     position?: number | null;
 }
@@ -67,7 +67,7 @@ const handleStartGame = () => {
   socket.emit('startGame');
 };
 
-const handleGameStart = ({message, lobby}: {message: string, lobby: ServerGameState}) => {
+const handleGameStart = ({message}: {message: string, lobby: ServerGameState}) => {
     console.log(message); // Log the success message
     router.push({
         path: '/game',
