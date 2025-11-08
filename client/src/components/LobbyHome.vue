@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import {Clipboard, Crown} from'lucide-vue-next';
 import AnswerBox from './AnswerBox.vue'
 import ProfilePicture from './ProfilePicture.vue'
@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
 import { computed, ref } from 'vue'
 import { toast } from 'vue-sonner';
-import { io } from 'socket.io-client'
+import { useSocket } from '@/composables/useSocket';
 
 type User = {
     socketId: String;
@@ -21,8 +21,10 @@ type ServerGameState = {
     lobbyCode: string;
 }
 
-const socket = io('http://localhost:3000');
+const { socket: socketRef } = useSocket();
+const socket = socketRef.value;
 
+const router = useRouter();
 const route = useRoute()
 const userName = computed(() => route.query.name as string || 'Guest')
 const mode = computed(() => route.query.action as string)
@@ -50,11 +52,6 @@ const handleConnect = () => {
   });
 };
 
-const handleNewUser = (userName: string) => {
-  toast.info("New User", {
-    description: userName
-  });
-};
 
 const isAdmin = computed(() => {
   const currentUser = gameState.value?.users.find(user => user.socketId === socket.id);
@@ -70,9 +67,10 @@ const handleStartGame = () => {
   socket.emit('startGame');
 };
 
-const handleConnectError = () => {
-    toast.error("Connection Failed", {
-        description: "Unable to reach the HOSA Bowl server. Please try again."
+const handleGameStart = ({message, lobby}: {message: string, lobby: ServerGameState}) => {
+    console.log(message); // Log the success message
+    router.push({
+        path: '/game',
     });
 }
 
@@ -83,12 +81,15 @@ const handleError = (error: { message: string }) => {
 }
 
 socket.on('connect', handleConnect);
-socket.on('user_connected', handleNewUser);
-socket.on('connect_error', handleConnectError);
+socket.on('gameStarted', handleGameStart);
 socket.on('error', handleError);
 socket.on('updateGameState', (payload: ServerGameState) => {
     gameState.value = payload;
 });
+
+if (socket.connected) {
+    handleConnect();
+}
 
 </script>
 

@@ -16,7 +16,7 @@ import { ref } from 'vue'
 
 
 const router = useRouter()
-const activeTab = ref('create')
+const activeTab = ref('join')
 
 const formSchema = toTypedSchema(z.object({
     username: z.string().min(2).max(50),
@@ -53,7 +53,7 @@ const onPinComplete = (code: string[]) => {
     <section class="mx-auto flex min-h-screen w-full max-w-2xl flex-col items-center justify-center gap-8 px-4 text-center">
         <h1 class="text-4xl font-bold tracking-tight sm:text-5xl">Mock HOSA Bowl System</h1>
 
-        <Tabs v-model="activeTab" default-value="create" class="w-full">
+        <Tabs v-model="activeTab" default-value="join" class="w-full">
             <TabsList class="w-full">
                 <TabsTrigger value="create">Create Lobby</TabsTrigger>
                 <TabsTrigger value="join">Join Lobby</TabsTrigger>

@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 
-const lightOn = ref(false);
-
 const props = defineProps({
     onPress: {
         type: Function,
         required: true
+    },
+    lightOn: {
+        type: Boolean,
+        default: false
     },
     width: {
         type: Number,
@@ -21,7 +23,12 @@ const props = defineProps({
         default: 0,
     }
 })
-console.log(props.rotate);
+
+// Local ref for button press feedback
+const buttonPressed = ref(false);
+
+// Compute the actual light state (prop OR button pressed)
+const isLightOn = computed(() => props.lightOn || buttonPressed.value);
 </script>
 <template>
     <svg xmlns="http://www.w3.org/2000/svg" :class="`rotate-[${rotate}deg]`" :width="width" :height="height" viewBox="0 0 120 180">
@@ -46,16 +53,15 @@ console.log(props.rotate);
         <rect x="20" y="20" width="80" height="140" rx="8" fill="#1a1a1a" stroke="#0a0a0a" stroke-width="2" />
 
         <!-- Green LED (glowing) -->
-        <!-- <circle cx="60" cy="50" r="12" fill="url(#ledGrad)" filter="url(#glow)" /> -->
-        <circle cx="60" cy="50" r="12" :fill="lightOn ? 'url(#ledGrad)' : '#000000'" :filter="lightOn ? 'url(#glow)' : ''"/>
+        <circle cx="60" cy="50" r="12" :fill="isLightOn ? 'url(#ledGrad)' : '#000000'" :filter="isLightOn ? 'url(#glow)' : ''"/>
         <!-- small bezel -->
         <circle cx="60" cy="50" r="13.5" fill="none" stroke="#4a4a4a" stroke-width="2" opacity="0.7" />
 
         <!-- Red square button -->
         <rect x="51" y="110" width="18" height="18" rx="3" fill="#e84c3d" stroke="#8e1f16" stroke-width="2"
             @click="props.onPress()"
-            @mousedown="lightOn = true"
-            @mouseup="lightOn = false"
+            @mousedown="buttonPressed = true"
+            @mouseup="buttonPressed = false"
         />
     </svg>
 </template>
