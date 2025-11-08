@@ -23,18 +23,24 @@ type Lobby = {
     lobbyCode: string;
 }
 
+const allowedOrigins = process.env.NODE_ENV === 'production'
+  ? ["https://hosa.evankim.me"]
+  : ["http://localhost:5173", "http://localhost:4173", "http://localhost:3000"];
+
 const io = new Server({
   cors: {
-    origin: "*", // In production, replace with your specific domain
-    methods: ["GET", "POST"]
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
 const engine = new Engine({
   path: "/socket.io/",
   cors: {
-    origin: "*", // In production, replace with your specific domain
-    methods: ["GET", "POST"]
+    origin: allowedOrigins,
+    methods: ["GET", "POST"],
+    credentials: true
   }
 });
 
@@ -120,8 +126,13 @@ io.on("connection", (socket) => {
     socket.on("joinLobby", (userName: string, lobbyCode: string) => {
         const lobby = lobbies.get(lobbyCode);
 
-        // Implement later
         if (!lobby) {
+            socket.emit("error", { message: "Lobby not found" });
+            return;
+        }
+
+        if (lobby.users.length >= USER_AMOUNT) {
+            socket.emit("error", { message: "Lobby is full" });
             return;
         }
 
@@ -148,20 +159,32 @@ io.on("connection", (socket) => {
 
         const { lobby, lobbyCode } = result;
 
+        if (lobby.gameState !== 'lobby') {
+            socket.emit("error", { message: "Cannot select position after game started" });
+            return;
+        }
+
+        if (!Number.isInteger(position) || position < 0 || position > 8) {
+            socket.emit("error", { message: "Invalid position" });
+            return;
+        }
+
         const isPositionTaken = lobby.users.some(user => user.position === position);
         if (isPositionTaken) {
             socket.emit("error", { message: "Position already taken" });
             return;
         }
 
-        // Update the user's position
         const user = getCurrentUser(lobby, socket.id);
-        if (user) {
-            user.position = position;
-            console.log(`User ${user.name} selected position ${position} in lobby ${lobbyCode}`);
-
-            broadcastGameState(lobbyCode, lobby);
+        if (!user) {
+            socket.emit("error", { message: "User not found in lobby" });
+            return;
         }
+
+        user.position = position;
+        console.log(`User ${user.name} selected position ${position} in lobby ${lobbyCode}`);
+
+        broadcastGameState(lobbyCode, lobby);
     });
 
     socket.on("startGame", () => {
@@ -171,6 +194,11 @@ io.on("connection", (socket) => {
         const { lobby, lobbyCode } = result;
 
         if (!requireAdmin(socket, lobby)) return;
+
+        if (lobby.gameState !== 'lobby') {
+            socket.emit("error", { message: "Game already started" });
+            return;
+        }
 
         if (lobby.users.length < USER_AMOUNT) {
             socket.emit("error", { message: "Not enough players in the lobby" });
@@ -191,7 +219,6 @@ io.on("connection", (socket) => {
         }
 
         lobby.gameState = 'normal';
-
 
         io.to(lobbyCode).emit("gameStarted", {
             message: "Game started successfully!",
@@ -221,6 +248,11 @@ io.on("connection", (socket) => {
 
         if (!requireAdmin(socket, lobby)) return;
 
+        if (lobby.gameState !== 'normal') {
+            socket.emit("error", { message: "Cannot start buzz phase in current state" });
+            return;
+        }
+
         lobby.gameState = 'buzzTime';
         broadcastGameState(lobbyCode, lobby);
         lobby.timeoutId = setTimeout(() => {
@@ -240,15 +272,25 @@ io.on("connection", (socket) => {
             return
         }
 
-        clearLobbyTimeout(lobby);
+        if (lobby.hotSeat !== null && lobby.hotSeat !== undefined) {
+            socket.emit("error", { message: "Someone already buzzed" });
+            return;
+        }
 
         const currentUser = getCurrentUser(lobby, socket.id);
+        if (!currentUser) {
+            socket.emit("error", { message: "User not found in lobby" });
+            return;
+        }
+
+        clearLobbyTimeout(lobby);
+
         lobby.gameState = 'answer';
-        lobby.hotSeat = currentUser?.position ?? null;
+        lobby.hotSeat = currentUser.position ?? null;
 
         broadcastGameState(lobbyCode, lobby);
 
-        console.log(`User ${currentUser?.name} buzzed in at position ${lobby.hotSeat}`);
+        console.log(`User ${currentUser.name} buzzed in at position ${lobby.hotSeat}`);
 
         lobby.timeoutId = setTimeout(() => {
             lobby.gameState = 'normal';

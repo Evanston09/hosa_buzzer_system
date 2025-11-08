@@ -91,7 +91,7 @@ const handleAnswerBoxPress = () => {
     }
 
     console.log("Emitting buzz event");
-    socket.emit("buzz")
+    socket.emit("buzz");
 }
 
 watch(() => gameState.value?.gameState, (newState, oldState) => {
