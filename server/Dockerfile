@@ -14,6 +14,7 @@ COPY --from=install /temp/prod/node_modules node_modules
 COPY index.ts .
 COPY package.json .
 
+ENV NODE_ENV=production
 USER bun
 EXPOSE 3000/tcp
 ENTRYPOINT [ "bun", "run", "index.ts" ]
