@@ -36,7 +36,7 @@ const io = new Server({
 });
 
 const engine = new Engine({
-  path: "/backend/",
+  path: "/socket.io/",
   cors: corsConfig
 });
 
