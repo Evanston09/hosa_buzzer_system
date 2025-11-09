@@ -32,5 +32,5 @@ COPY --from=prerelease /usr/src/app/dist dist
 
 # run the app
 USER bun
-EXPOSE 8080/tcp
-ENTRYPOINT [ "bunx", "http-server", "./dist", "-g", "-b" ]
+EXPOSE 3000/tcp
+ENTRYPOINT [ "bunx", "serve", "./dist" ]
