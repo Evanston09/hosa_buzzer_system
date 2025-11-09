@@ -23,25 +23,21 @@ type Lobby = {
     lobbyCode: string;
 }
 
-const allowedOrigins = process.env.NODE_ENV === 'production'
-  ? ["https://hosa.evankim.me"]
-  : ["http://localhost:5173", "http://localhost:4173", "http://localhost:3000"];
+const corsConfig = process.env.NODE_ENV === 'production' 
+  ? undefined 
+  : {
+      origin: ["http://localhost:5173", "http://localhost:4173", "http://localhost:3000"],
+      methods: ["GET", "POST"],
+      credentials: true
+    };
 
 const io = new Server({
-  cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
-    credentials: true
-  }
+  cors: corsConfig
 });
 
 const engine = new Engine({
-  path: "/socket.io/",
-  cors: {
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
-    credentials: true
-  }
+  path: "/backend/",
+  cors: corsConfig
 });
 
 io.bind(engine);
