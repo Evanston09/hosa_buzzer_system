@@ -50,7 +50,7 @@ const onPinComplete = (code: string[]) => {
 </script>
 
 <template>
-    <section class="mx-auto flex min-h-screen w-full max-w-2xl flex-col items-center justify-center gap-8 px-4 text-center">
+    <section class="mx-auto flex w-full max-w-2xl flex-col items-center justify-center gap-8 px-4 text-center">
         <h1 class="text-4xl font-bold tracking-tight sm:text-5xl">Mock HOSA Bowl System</h1>
 
         <Tabs v-model="activeTab" default-value="join" class="w-full">
