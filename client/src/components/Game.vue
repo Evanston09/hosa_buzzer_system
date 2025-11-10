@@ -38,6 +38,8 @@ type ServerGameState = {
     timeoutId?: number | null;
     users: User[];
     lobbyCode: string;
+    topSideBoxCount: number;
+    bottomSideBoxCount: number;
 }
 
 let mainCountdown = ref(600);
@@ -134,6 +136,20 @@ const isHotSeat = (position: number) => {
     return gameState.value?.hotSeat === position;
 }
 
+const isPositionAvailable = (position: number) => {
+    if (!gameState.value) return false;
+
+    // Top side: positions 1-4
+    if (position >= 1 && position <= 4) {
+        return position <= gameState.value.topSideBoxCount;
+    }
+    // Bottom side: positions 5-8
+    if (position >= 5 && position <= 8) {
+        return position < 5 + gameState.value.bottomSideBoxCount;
+    }
+    return false;
+}
+
 socket.on('updateGameState', (payload: ServerGameState) => {
     console.log("Received updateGameState:", payload);
     gameState.value = payload;
@@ -170,7 +186,7 @@ socket.on('gameEnded', () => {
         <div v-if="isAdmin">
             <div class="grid grid-cols-4 gap-x-16 gap-y-8 max-w-4xl">
                 <!-- Position 1 -->
-                <div class="flex flex-col items-center gap-4">
+                <div v-if="isPositionAvailable(1)" class="flex flex-col items-center gap-4">
                     <div class="h-8">
                         <ProfilePicture v-if="getUserAtPosition(1)" :name="getUserAtPosition(1)!.name" size="sm" />
                     </div>
@@ -182,7 +198,7 @@ socket.on('gameEnded', () => {
                 </div>
 
                 <!-- Position 2 -->
-                <div class="flex flex-col items-center gap-4">
+                <div v-if="isPositionAvailable(2)" class="flex flex-col items-center gap-4">
                     <div class="h-8">
                         <ProfilePicture v-if="getUserAtPosition(2)" :name="getUserAtPosition(2)!.name" size="sm" />
                     </div>
@@ -194,7 +210,7 @@ socket.on('gameEnded', () => {
                 </div>
 
                 <!-- Position 3 -->
-                <div class="flex flex-col items-center gap-4">
+                <div v-if="isPositionAvailable(3)" class="flex flex-col items-center gap-4">
                     <div class="h-8">
                         <ProfilePicture v-if="getUserAtPosition(3)" :name="getUserAtPosition(3)!.name" size="sm" />
                     </div>
@@ -206,7 +222,7 @@ socket.on('gameEnded', () => {
                 </div>
 
                 <!-- Position 4 -->
-                <div class="flex flex-col items-center gap-4">
+                <div v-if="isPositionAvailable(4)" class="flex flex-col items-center gap-4">
                     <div class="h-8">
                         <ProfilePicture v-if="getUserAtPosition(4)" :name="getUserAtPosition(4)!.name" size="sm" />
                     </div>
@@ -227,7 +243,7 @@ socket.on('gameEnded', () => {
 
             <div class="grid grid-cols-4 gap-x-16 gap-y-8 max-w-4xl">
                 <!-- Position 5 -->
-                <div class="flex flex-col items-center gap-4">
+                <div v-if="isPositionAvailable(5)" class="flex flex-col items-center gap-4">
                     <AnswerBox
                         :onPress="() => {}"
                         :lightOn="isHotSeat(5)"
@@ -238,7 +254,7 @@ socket.on('gameEnded', () => {
                 </div>
 
                 <!-- Position 6 -->
-                <div class="flex flex-col items-center gap-4">
+                <div v-if="isPositionAvailable(6)" class="flex flex-col items-center gap-4">
                     <AnswerBox
                         :onPress="() => {}"
                         :lightOn="isHotSeat(6)"
@@ -249,7 +265,7 @@ socket.on('gameEnded', () => {
                 </div>
 
                 <!-- Position 7 -->
-                <div class="flex flex-col items-center gap-4">
+                <div v-if="isPositionAvailable(7)" class="flex flex-col items-center gap-4">
                     <AnswerBox
                         :onPress="() => {}"
                         :lightOn="isHotSeat(7)"
@@ -260,7 +276,7 @@ socket.on('gameEnded', () => {
                 </div>
 
                 <!-- Position 8 -->
-                <div class="flex flex-col items-center gap-4">
+                <div v-if="isPositionAvailable(8)" class="flex flex-col items-center gap-4">
                     <AnswerBox
                         :onPress="() => {}"
                         :lightOn="isHotSeat(8)"

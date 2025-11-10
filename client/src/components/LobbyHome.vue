@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { useRoute, useRouter } from 'vue-router'
-import {Clipboard, Crown} from'lucide-vue-next';
+import {Clipboard, Crown, Plus, Minus} from'lucide-vue-next';
 import AnswerBox from './AnswerBox.vue'
 import ProfilePicture from './ProfilePicture.vue'
 import { Button } from '@/components/ui/button'
@@ -19,6 +19,8 @@ type User = {
 type ServerGameState = {
     users: User[];
     lobbyCode: string;
+    topSideBoxCount: number;
+    bottomSideBoxCount: number;
 }
 
 const { socket: socketRef } = useSocket();
@@ -62,6 +64,20 @@ const getUserAtPosition = (position: number) => {
   return gameState.value?.users.find(user => user.position === position);
 };
 
+const isPositionAvailable = (position: number) => {
+  if (!gameState.value) return false;
+
+  // Top side: positions 1-4
+  if (position >= 1 && position <= 4) {
+    return position <= gameState.value.topSideBoxCount;
+  }
+  // Bottom side: positions 5-8
+  if (position >= 5 && position <= 8) {
+    return position < 5 + gameState.value.bottomSideBoxCount;
+  }
+  return false;
+};
+
 const handleStartGame = () => {
   // TODO: Implement start game functionality
   socket.emit('startGame');
@@ -78,6 +94,24 @@ const handleError = (error: { message: string }) => {
     toast.error("Error", {
         description: error.message
     });
+}
+
+const updateBoxCount = (side: 'top' | 'bottom', delta: number) => {
+    if (!gameState.value) return;
+
+    const currentTop = gameState.value.topSideBoxCount;
+    const currentBottom = gameState.value.bottomSideBoxCount;
+
+    let newTop = currentTop;
+    let newBottom = currentBottom;
+
+    if (side === 'top') {
+        newTop = Math.max(1, Math.min(4, currentTop + delta));
+    } else {
+        newBottom = Math.max(1, Math.min(4, currentBottom + delta));
+    }
+
+    socket.emit('updateBoxCounts', newTop, newBottom);
 }
 
 socket.on('connect', handleConnect);
@@ -119,9 +153,64 @@ if (socket.connected) {
                 />
             </div>
         </div>
+
+        <!-- Admin Controls for Box Counts -->
+        <div v-if="isAdmin" class="mb-8 p-6 rounded-lg border border-border bg-background/50">
+            <h3 class="text-lg font-semibold mb-4 text-center">Answer Box Configuration</h3>
+            <div class="flex items-center justify-center gap-12">
+                <!-- Top Side Controls -->
+                <div class="flex flex-col items-center gap-2">
+                    <span class="text-sm text-gray-400 uppercase">Top Side Boxes</span>
+                    <div class="flex items-center gap-2">
+                        <Button
+                            @click="updateBoxCount('top', -1)"
+                            :disabled="gameState!.topSideBoxCount <= 1"
+                            size="icon"
+                            variant="outline"
+                        >
+                            <Minus class="h-4 w-4" />
+                        </Button>
+                        <span class="text-2xl font-bold min-w-[2rem] text-center">{{ gameState?.topSideBoxCount }}</span>
+                        <Button
+                            @click="updateBoxCount('top', 1)"
+                            :disabled="gameState!.topSideBoxCount >= 4"
+                            size="icon"
+                            variant="outline"
+                        >
+                            <Plus class="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+
+                <!-- Bottom Side Controls -->
+                <div class="flex flex-col items-center gap-2">
+                    <span class="text-sm text-gray-400 uppercase">Bottom Side Boxes</span>
+                    <div class="flex items-center gap-2">
+                        <Button
+                            @click="updateBoxCount('bottom', -1)"
+                            :disabled="gameState!.bottomSideBoxCount <= 1"
+                            size="icon"
+                            variant="outline"
+                        >
+                            <Minus class="h-4 w-4" />
+                        </Button>
+                        <span class="text-2xl font-bold min-w-[2rem] text-center">{{ gameState?.bottomSideBoxCount }}</span>
+                        <Button
+                            @click="updateBoxCount('bottom', 1)"
+                            :disabled="gameState!.bottomSideBoxCount >= 4"
+                            size="icon"
+                            variant="outline"
+                        >
+                            <Plus class="h-4 w-4" />
+                        </Button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     <div class="grid grid-cols-4 gap-x-16 gap-y-8 max-w-4xl">
-      <!-- Row 1 -->
-      <div class="flex flex-col items-center gap-4">
+      <!-- Position 1 -->
+      <div v-if="isPositionAvailable(1)" class="flex flex-col items-center gap-4">
         <div class="h-8">
           <ProfilePicture v-if="getUserAtPosition(1)" :name="getUserAtPosition(1)!.name" size="sm" />
         </div>
@@ -131,8 +220,8 @@ if (socket.connected) {
         <AnswerBox :onPress="() => { }" :rotate=180 />
       </div>
 
-      <!-- Row 2 -->
-      <div class="flex flex-col items-center gap-4">
+      <!-- Position 2 -->
+      <div v-if="isPositionAvailable(2)" class="flex flex-col items-center gap-4">
         <div class="h-8">
           <ProfilePicture v-if="getUserAtPosition(2)" :name="getUserAtPosition(2)!.name" size="sm" />
         </div>
@@ -142,7 +231,8 @@ if (socket.connected) {
         <AnswerBox :onPress="() => { }" :rotate=180 />
       </div>
 
-      <div class="flex flex-col items-center gap-4">
+      <!-- Position 3 -->
+      <div v-if="isPositionAvailable(3)" class="flex flex-col items-center gap-4">
         <div class="h-8">
           <ProfilePicture v-if="getUserAtPosition(3)" :name="getUserAtPosition(3)!.name" size="sm" />
         </div>
@@ -152,7 +242,8 @@ if (socket.connected) {
         <AnswerBox :onPress="() => { }" :rotate=180 />
       </div>
 
-      <div class="flex flex-col items-center gap-4">
+      <!-- Position 4 -->
+      <div v-if="isPositionAvailable(4)" class="flex flex-col items-center gap-4">
         <div class="h-8">
           <ProfilePicture v-if="getUserAtPosition(4)" :name="getUserAtPosition(4)!.name" size="sm" />
         </div>
@@ -174,8 +265,8 @@ if (socket.connected) {
     </div>
 
     <div class="grid grid-cols-4 gap-x-16 gap-y-8 max-w-4xl">
-      <!-- Row 3 -->
-      <div class="flex flex-col items-center gap-4">
+      <!-- Position 5 -->
+      <div v-if="isPositionAvailable(5)" class="flex flex-col items-center gap-4">
         <AnswerBox :onPress="() => { }" />
         <Button v-if="!isAdmin" @click="handleBoxSelection(5)" :disabled="!!getUserAtPosition(5)">
           Click to pick this spot
@@ -185,7 +276,8 @@ if (socket.connected) {
         </div>
       </div>
 
-      <div class="flex flex-col items-center gap-4">
+      <!-- Position 6 -->
+      <div v-if="isPositionAvailable(6)" class="flex flex-col items-center gap-4">
         <AnswerBox :onPress="() => { }" />
         <Button v-if="!isAdmin" @click="handleBoxSelection(6)" :disabled="!!getUserAtPosition(6)">
           Click to pick this spot
@@ -195,8 +287,8 @@ if (socket.connected) {
         </div>
       </div>
 
-      <!-- Row 4 -->
-      <div class="flex flex-col items-center gap-4">
+      <!-- Position 7 -->
+      <div v-if="isPositionAvailable(7)" class="flex flex-col items-center gap-4">
         <AnswerBox :onPress="() => { }" />
         <Button v-if="!isAdmin" @click="handleBoxSelection(7)" :disabled="!!getUserAtPosition(7)">
           Click to pick this spot
@@ -206,7 +298,8 @@ if (socket.connected) {
         </div>
       </div>
 
-      <div class="flex flex-col items-center gap-4">
+      <!-- Position 8 -->
+      <div v-if="isPositionAvailable(8)" class="flex flex-col items-center gap-4">
         <AnswerBox :onPress="() => { }" />
         <Button v-if="!isAdmin" @click="handleBoxSelection(8)" :disabled="!!getUserAtPosition(8)">
           Click to pick this spot

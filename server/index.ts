@@ -21,6 +21,8 @@ type Lobby = {
     timeoutId?: NodeJS.Timeout| null;
     users: User[];
     lobbyCode: string;
+    topSideBoxCount: number;    // Number of answer boxes on top side (1-4)
+    bottomSideBoxCount: number; // Number of answer boxes on bottom side (1-4)
 }
 
 const corsConfig = process.env.NODE_ENV === 'production' 
@@ -82,6 +84,23 @@ const broadcastGameState = (lobbyCode: string, lobby: Lobby) => {
     io.to(lobbyCode).emit("updateGameState", lobby);
 }
 
+const getValidPositions = (lobby: Lobby): number[] => {
+    const positions: number[] = [];
+    // Top side positions: 1, 2, 3, 4
+    for (let i = 1; i <= lobby.topSideBoxCount; i++) {
+        positions.push(i);
+    }
+    // Bottom side positions: 5, 6, 7, 8
+    for (let i = 5; i < 5 + lobby.bottomSideBoxCount; i++) {
+        positions.push(i);
+    }
+    return positions;
+}
+
+const getMaxUsers = (lobby: Lobby): number => {
+    return lobby.topSideBoxCount + lobby.bottomSideBoxCount + 1; // +1 for admin
+}
+
 const clearLobbyTimeout = (lobby: Lobby) => {
     if (lobby.timeoutId) {
         clearTimeout(lobby.timeoutId);
@@ -108,6 +127,8 @@ io.on("connection", (socket) => {
             gameState: 'lobby',
             users: [adminUser],
             lobbyCode,
+            topSideBoxCount: 4,    // Default to 4 boxes on top
+            bottomSideBoxCount: 4, // Default to 4 boxes on bottom
         };
 
         lobbies.set(lobbyCode, lobby);
@@ -127,7 +148,7 @@ io.on("connection", (socket) => {
             return;
         }
 
-        if (lobby.users.length >= USER_AMOUNT) {
+        if (lobby.users.length >= getMaxUsers(lobby)) {
             socket.emit("error", { message: "Lobby is full" });
             return;
         }
@@ -160,7 +181,8 @@ io.on("connection", (socket) => {
             return;
         }
 
-        if (!Number.isInteger(position) || position < 0 || position > 8) {
+        const validPositions = getValidPositions(lobby);
+        if (!Number.isInteger(position) || !validPositions.includes(position)) {
             socket.emit("error", { message: "Invalid position" });
             return;
         }
@@ -196,7 +218,7 @@ io.on("connection", (socket) => {
             return;
         }
 
-        if (lobby.users.length < USER_AMOUNT) {
+        if (lobby.users.length < getMaxUsers(lobby)) {
             socket.emit("error", { message: "Not enough players in the lobby" });
             return;
         }
@@ -295,6 +317,66 @@ io.on("connection", (socket) => {
         }, ANSWER_LENGTH)
     })
 
+
+    socket.on("updateBoxCounts", (topCount: number, bottomCount: number) => {
+        const result = getLobbyForSocket(socket);
+        if (!result) return;
+
+        const { lobby, lobbyCode } = result;
+
+        if (!requireAdmin(socket, lobby)) return;
+
+        if (lobby.gameState !== 'lobby') {
+            socket.emit("error", { message: "Cannot change box counts after game started" });
+            return;
+        }
+
+        // Validate counts are within bounds
+        if (!Number.isInteger(topCount) || topCount < 1 || topCount > 4) {
+            socket.emit("error", { message: "Top side box count must be between 1 and 4" });
+            return;
+        }
+
+        if (!Number.isInteger(bottomCount) || bottomCount < 1 || bottomCount > 4) {
+            socket.emit("error", { message: "Bottom side box count must be between 1 and 4" });
+            return;
+        }
+
+        lobby.topSideBoxCount = topCount;
+        lobby.bottomSideBoxCount = bottomCount;
+
+        // Clear positions that are no longer valid
+        const validPositions = getValidPositions(lobby);
+        lobby.users.forEach(user => {
+            if (user.position && !validPositions.includes(user.position)) {
+                user.position = null;
+            }
+        });
+
+        // Remove users that exceed the new max
+        const maxUsers = getMaxUsers(lobby);
+        if (lobby.users.length > maxUsers) {
+            // Keep admin and first (maxUsers-1) non-admin users
+            const nonAdminUsers = lobby.users.filter(u => !u.isAdmin);
+            const usersToRemove = nonAdminUsers.slice(maxUsers - 1);
+
+            usersToRemove.forEach(user => {
+                const userSocket = io.sockets.sockets.get(user.socketId);
+                if (userSocket) {
+                    userSocket.emit("error", { message: "You were removed from lobby due to box count change" });
+                    userSocket.leave(lobbyCode);
+                }
+            });
+
+            lobby.users = [
+                ...lobby.users.filter(u => u.isAdmin),
+                ...nonAdminUsers.slice(0, maxUsers - 1)
+            ];
+        }
+
+        console.log(`Lobby ${lobbyCode} box counts updated: top=${topCount}, bottom=${bottomCount}`);
+        broadcastGameState(lobbyCode, lobby);
+    });
 
     socket.on("disconnect", () => {
         console.log("Client disconnected:", socket.id);
