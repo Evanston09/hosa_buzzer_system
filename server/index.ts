@@ -2,7 +2,7 @@ import { Server as Engine } from "@socket.io/bun-engine";
 import { Server } from "socket.io";
 import type {Socket } from "socket.io";
 
-const GAME_LENGTH = 10000
+const GAME_LENGTH = 600000
 const BUZZ_LENGTH = 5000
 const ANSWER_LENGTH = 5000
 const USER_AMOUNT = 9 // Including admin
