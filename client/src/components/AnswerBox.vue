@@ -29,9 +29,17 @@ const buttonPressed = ref(false);
 
 // Compute the actual light state (prop OR button pressed)
 const isLightOn = computed(() => props.lightOn || buttonPressed.value);
+
+// Compute rotation class
+const rotationClass = computed(() => {
+    if (props.rotate === 180) return 'rotate-180';
+    if (props.rotate === 90) return 'rotate-90';
+    if (props.rotate === 270) return '-rotate-90';
+    return '';
+});
 </script>
 <template>
-    <svg xmlns="http://www.w3.org/2000/svg" :class="`rotate-[${rotate}deg]`" :width="width" :height="height" viewBox="0 0 120 180">
+    <svg xmlns="http://www.w3.org/2000/svg" :class="rotationClass" :width="width" :height="height" viewBox="0 0 120 180">
         <defs>
             <!-- LED glow and highlight -->
             <radialGradient id="ledGrad" cx="50%" cy="40%" r="60%">

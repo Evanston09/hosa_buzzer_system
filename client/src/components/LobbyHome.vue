@@ -5,7 +5,7 @@ import AnswerBox from './AnswerBox.vue'
 import ProfilePicture from './ProfilePicture.vue'
 import { Button } from '@/components/ui/button'
 import { Spinner } from '@/components/ui/spinner'
-import { computed, ref } from 'vue'
+import { computed, ref, onBeforeUnmount } from 'vue'
 import { toast } from 'vue-sonner';
 import { useSocket } from '@/composables/useSocket';
 
@@ -80,16 +80,30 @@ const handleError = (error: { message: string }) => {
     });
 }
 
+const handleUpdateGameState = (payload: ServerGameState) => {
+    gameState.value = payload;
+};
+
+// Register socket event listeners
 socket.on('connect', handleConnect);
 socket.on('gameStarted', handleGameStart);
 socket.on('error', handleError);
-socket.on('updateGameState', (payload: ServerGameState) => {
-    gameState.value = payload;
-});
+socket.on('updateGameState', handleUpdateGameState);
 
 if (socket.connected) {
     handleConnect();
 }
+
+// Cleanup function to run when component unmounts
+onBeforeUnmount(() => {
+    console.log("LobbyHome component unmounting - cleaning up socket listeners");
+    
+    // Remove socket event listeners
+    socket.off('connect', handleConnect);
+    socket.off('gameStarted', handleGameStart);
+    socket.off('error', handleError);
+    socket.off('updateGameState', handleUpdateGameState);
+});
 
 </script>
 

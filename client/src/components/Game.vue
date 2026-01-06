@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { toast } from 'vue-sonner';
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, onBeforeUnmount } from 'vue'
 import { Spinner } from '@/components/ui/spinner'
 import { useSocket } from '@/composables/useSocket'
 import GameClock from './GameClock.vue';
@@ -25,6 +25,11 @@ const answerTime = ref(500);
 
 const isConnected = ref(socket.connected)
 
+// Store interval IDs as refs so we can clean them up later
+const mainCountdownIntervalId = ref<NodeJS.Timeout | null>(null);
+const buzzTimerIntervalId = ref<NodeJS.Timeout | null>(null);
+const answerTimerIntervalId = ref<NodeJS.Timeout | null>(null);
+
 type User = {
     socketId: string;
     name: string;
@@ -43,10 +48,14 @@ type ServerGameState = {
 let mainCountdown = ref(600);
 let dialogOpen = ref(false);
 
-let mainCountdownInterval = setInterval(() => {
+// Start the main countdown timer
+mainCountdownIntervalId.value = setInterval(() => {
     mainCountdown.value -= 1;
     if(mainCountdown.value === 0) {
-        if (mainCountdownInterval) clearInterval(mainCountdownInterval);
+        if (mainCountdownIntervalId.value) {
+            clearInterval(mainCountdownIntervalId.value);
+            mainCountdownIntervalId.value = null;
+        }
     }
 }, 1000);
 
@@ -60,21 +69,39 @@ const handleStartBuzzPhase = () => {
 }
 
 const startBuzzTimer = () => {
+    // Clear any existing buzz timer
+    if (buzzTimerIntervalId.value) {
+        clearInterval(buzzTimerIntervalId.value);
+        buzzTimerIntervalId.value = null;
+    }
+    
     buzzTime.value = 500;
-    let buzzTimerIntervalId = setInterval(() => {
+    buzzTimerIntervalId.value = setInterval(() => {
         buzzTime.value -= 1;
         if(buzzTime.value === 0) {
-            if (buzzTimerIntervalId) clearInterval(buzzTimerIntervalId);
+            if (buzzTimerIntervalId.value) {
+                clearInterval(buzzTimerIntervalId.value);
+                buzzTimerIntervalId.value = null;
+            }
         }
     }, 10);
 }
 
 const startAnswerTimer = () => {
+    // Clear any existing answer timer
+    if (answerTimerIntervalId.value) {
+        clearInterval(answerTimerIntervalId.value);
+        answerTimerIntervalId.value = null;
+    }
+    
     answerTime.value = 500;
-    let answerTimerIntervalId = setInterval(() => {
+    answerTimerIntervalId.value = setInterval(() => {
         answerTime.value -= 1;
         if(answerTime.value === 0) {
-            if (answerTimerIntervalId) clearInterval(answerTimerIntervalId);
+            if (answerTimerIntervalId.value) {
+                clearInterval(answerTimerIntervalId.value);
+                answerTimerIntervalId.value = null;
+            }
         }
     }, 10);
 }
@@ -134,19 +161,49 @@ const isHotSeat = (position: number) => {
     return gameState.value?.hotSeat === position;
 }
 
-socket.on('updateGameState', (payload: ServerGameState) => {
+// Define event handlers as named functions so we can remove them later
+const handleUpdateGameState = (payload: ServerGameState) => {
     console.log("Received updateGameState:", payload);
     gameState.value = payload;
-});
+};
 
-socket.on('error', (error: { message: string }) => {
+const handleError = (error: { message: string }) => {
     toast.error("Error", {
         description: error.message
     });
-});
+};
 
-socket.on('gameEnded', () => {
+const handleGameEnded = () => {
     dialogOpen.value = true;
+};
+
+// Register socket event listeners
+socket.on('updateGameState', handleUpdateGameState);
+socket.on('error', handleError);
+socket.on('gameEnded', handleGameEnded);
+
+// Cleanup function to run when component unmounts
+onBeforeUnmount(() => {
+    console.log("Game component unmounting - cleaning up resources");
+    
+    // Clear all intervals
+    if (mainCountdownIntervalId.value) {
+        clearInterval(mainCountdownIntervalId.value);
+        mainCountdownIntervalId.value = null;
+    }
+    if (buzzTimerIntervalId.value) {
+        clearInterval(buzzTimerIntervalId.value);
+        buzzTimerIntervalId.value = null;
+    }
+    if (answerTimerIntervalId.value) {
+        clearInterval(answerTimerIntervalId.value);
+        answerTimerIntervalId.value = null;
+    }
+    
+    // Remove socket event listeners
+    socket.off('updateGameState', handleUpdateGameState);
+    socket.off('error', handleError);
+    socket.off('gameEnded', handleGameEnded);
 });
 </script>
 
