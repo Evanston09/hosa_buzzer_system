@@ -3,11 +3,9 @@ services:
     image: ghcr.io/evanston09/hosa_buzzer_system-client:main
     depends_on:
       - hosa_server
-    ports:
-      - "4173:4173"
+
 
   hosa_server:
     image: ghcr.io/evanston09/hosa_buzzer_system-server:main
-    ports:
-      - "3000:3000"
+
 
